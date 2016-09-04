@@ -111,7 +111,7 @@ class Adapter extends \UniMapper\Adapter
         if (empty($selection)) {
             $selection = "*";
         } else {
-            $selection = "[" . implode("],[", $selection) . "]";
+            $selection = "[$table].[" . implode("],[$table].[", $selection) . "]";
         }
 
         $query = new Query($this->connection->select($selection)->from("%n", $table));

@@ -4,7 +4,7 @@ namespace UniMapper\Dibi;
 
 use UniMapper\Entity\Filter;
 
-class Query implements \UniMapper\Adapter\IQuery
+class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJoins
 {
 
     public $associations = [];
@@ -130,4 +130,10 @@ class Query implements \UniMapper\Adapter\IQuery
         return (string) $this->fluent;
     }
 
+    public function setJoins(array $joins)
+    {
+        foreach ($joins as $join) {
+            $this->fluent->innerJoin($join);
+        }
+    }
 }
