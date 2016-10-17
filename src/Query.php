@@ -26,9 +26,13 @@ class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJ
         "double" => "%f"
     ];
 
-    public function __construct(\DibiFluent $fluent)
+    /** @var  string */
+    private $table;
+
+    public function __construct(\DibiFluent $fluent, $table = null)
     {
         $this->fluent = $fluent;
+        $this->table = $table;
     }
 
     public function getModificators()
@@ -110,6 +114,10 @@ class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJ
 
                     if ($operator === Filter::NOT) {
                         $operator = "!=";
+                    }
+
+                    if ($this->table && strpos($name, '.') === false) {
+                        $name =  $this->table . '.' . $name;
                     }
 
                     $result[] = [

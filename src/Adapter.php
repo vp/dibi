@@ -35,7 +35,7 @@ class Adapter extends \UniMapper\Adapter
 
     public function createDelete($table)
     {
-        $query = new Query($this->connection->delete($table));
+        $query = new Query($this->connection->delete($table), $table);
         $query->resultCallback = function (Query $query) {
 
             $query->fluent->execute();
@@ -62,7 +62,8 @@ class Adapter extends \UniMapper\Adapter
         $query = new Query(
             $this->connection->select("*")
                 ->from("%n", $table)
-                ->where("%n = %s", $column, $value) // @todo
+                ->where("%n = %s", $column, $value), // @todo
+            $table
         );
 
         $query->resultCallback = function (Query $query) use ($value) {
@@ -114,7 +115,7 @@ class Adapter extends \UniMapper\Adapter
             $selection = "[$table].[" . implode("],[$table].[", $selection) . "]";
         }
 
-        $query = new Query($this->connection->select($selection)->from("%n", $table));
+        $query = new Query($this->connection->select($selection)->from("%n", $table), $table);
 
         if (!empty($limit)) {
             $query->fluent->limit("%i", $limit);
@@ -268,7 +269,7 @@ class Adapter extends \UniMapper\Adapter
                 ->and("%n IN %l", $association->getReferencingKey(), $refKeys);
         }
 
-        $query = new Query($fluent);
+        $query = new Query($fluent, $table);
         $query->resultCallback = function (Query $query) {
             return $query->fluent->execute();
         };
@@ -278,7 +279,7 @@ class Adapter extends \UniMapper\Adapter
 
     public function createCount($table)
     {
-        $query = new Query($this->connection->select("*")->from("%n", $table));
+        $query = new Query($this->connection->select("*")->from("%n", $table), $table);
         $query->resultCallback = function (Query $query) {
             return $query->fluent->count();
         };
@@ -287,7 +288,7 @@ class Adapter extends \UniMapper\Adapter
 
     public function createInsert($table, array $values, $primaryName = null)
     {
-        $query = new Query($this->connection->insert($table, $values));
+        $query = new Query($this->connection->insert($table, $values), $table);
         $query->resultCallback = function (Query $query) {
 
             $query->fluent->execute();
@@ -298,7 +299,7 @@ class Adapter extends \UniMapper\Adapter
 
     public function createUpdate($table, array $values)
     {
-        $query = new Query($this->connection->update($table, $values));
+        $query = new Query($this->connection->update($table, $values), $table);
         $query->resultCallback = function (Query $query) {
 
             $query->fluent->execute();
@@ -311,7 +312,7 @@ class Adapter extends \UniMapper\Adapter
     {
         $type = is_object($primaryValue) ? get_class($primaryValue) : gettype($primaryValue);
 
-        $query = new Query($this->connection->update($table, $values));
+        $query = new Query($this->connection->update($table, $values), $table);
         $query->fluent->where("%n = " . $query->getModificators()[$type], $primaryColumn, $primaryValue);
         $query->resultCallback = function (Query $query) {
 
