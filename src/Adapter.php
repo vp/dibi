@@ -57,10 +57,10 @@ class Adapter extends \UniMapper\Adapter
         return $query;
     }
 
-    public function createSelectOne($table, $column, $value)
+    public function createSelectOne($table, $column, $value, $selection = [])
     {
         $query = new Query(
-            $this->connection->select("*")
+            $this->connection->select($selection ? $selection : '*')
                 ->from("%n", $table)
                 ->where("%n = %s", $column, $value), // @todo
             $table
