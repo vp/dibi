@@ -1,5 +1,5 @@
 {
-    "name": "bauer01/unimapper-dibi",
+    "name": "unimapper/dibi",
     "type": "library",
     "description": "Dibi implementation for UniMapper",
     "keywords": ["php", "mapping", "data", "orm", "database", "dibi"],
@@ -16,6 +16,9 @@
     "require": {
         "php": ">=5.4.0",
         "dibi/dibi": "~2.0"
+    },
+    "replace": {
+        "bauer01/unimapper-dibi": "self.version"
     },
     "require-dev": {
         "unimapper/unimapper": "dev-vp-associations-selection as 1.2.x-dev",
