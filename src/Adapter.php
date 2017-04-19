@@ -60,7 +60,7 @@ class Adapter extends \UniMapper\Adapter
     public function createSelectOne($table, $column, $value, $selection = [])
     {
         $query = new Query(
-            $this->connection->select($selection ? $selection : '*')
+            $this->connection->select($selection ? array_values($selection) : '*')
                 ->from("%n", $table)
                 ->where("%n = %s", $column, $value), // @todo
             $table
@@ -112,7 +112,7 @@ class Adapter extends \UniMapper\Adapter
         if (empty($selection)) {
             $selection = "*";
         } else {
-            $selection = "[$table].[" . implode("],[$table].[", $selection) . "]";
+            $selection = "[$table].[" . implode("],[$table].[", array_values($selection)) . "]";
         }
 
         $query = new Query($this->connection->select($selection)->from("%n", $table), $table);
@@ -194,7 +194,8 @@ class Adapter extends \UniMapper\Adapter
 
     private function _oneToMany(Association\OneToMany $association, array $primaryKeys)
     {
-        return $this->connection->select("*")
+        $targetSelection = $association->getTargetSelectionUnampped();
+        return $this->connection->select($targetSelection ? array_values($targetSelection) : "*")
             ->from("%n", $association->getTargetResource())
             ->where("%n IN %l", $association->getReferencedKey(), $primaryKeys)
             ->fetchAssoc($association->getReferencedKey() . ",#");
@@ -202,7 +203,8 @@ class Adapter extends \UniMapper\Adapter
 
     private function _oneToOne(Association\OneToOne $association, array $primaryKeys)
     {
-        return $this->connection->select("*")
+        $targetSelection = $association->getTargetSelectionUnampped();
+        return $this->connection->select($targetSelection ? array_values($targetSelection) : "*")
             ->from("%n", $association->getTargetResource())
             ->where("%n IN %l", $association->getTargetPrimaryKey(), $primaryKeys)
             ->fetchAssoc($association->getTargetPrimaryKey() . ",#");
@@ -214,7 +216,8 @@ class Adapter extends \UniMapper\Adapter
             ->getPrimaryProperty()
             ->getName(true);
 
-        return $this->connection->select("*")
+        $targetSelection = $association->getTargetSelectionUnampped();
+        return $this->connection->select($targetSelection ? array_values($targetSelection) : "*")
             ->from("%n", $association->getTargetResource())
             ->where("%n IN %l", $primaryColumn, $primaryKeys)
             ->fetchAssoc($primaryColumn);
@@ -231,7 +234,8 @@ class Adapter extends \UniMapper\Adapter
             return [];
         }
 
-        $targetResult = $this->connection->select("*")
+        $targetSelection = $association->getTargetSelectionUnampped();
+        $targetResult = $this->connection->select($targetSelection ? array_values($targetSelection) : "*")
             ->from("%n", $association->getTargetResource())
             ->where("%n IN %l", $association->getTargetPrimaryKey(), array_keys($joinResult))
             ->fetchAssoc($association->getTargetPrimaryKey());
