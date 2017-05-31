@@ -57,6 +57,28 @@ class Adapter extends \UniMapper\Adapter
         return $query;
     }
 
+
+    protected function associate(Association $association, array $referencingKeys, $result)
+    {
+        if ($association instanceof Association\OneToMany) {
+            $associated = $this->_oneToMany($association, $referencingKeys);
+        } elseif ($association instanceof Association\ManyToOne) {
+            $associated = $this->_manyToOne($association, $referencingKeys);
+        } elseif ($association instanceof Association\ManyToMany) {
+            $associated = $this->_manyToMany($association, $referencingKeys);
+        } elseif ($association instanceof Association\OneToOne) {
+            $associated = $this->_oneToOne($association, $referencingKeys);
+        } else {
+            throw new InvalidArgumentException(
+                "Unsupported association " . get_class($association) . "!",
+                $association
+            );
+        }
+
+        return $associated;
+    }
+
+
     public function createSelectOne($table, $column, $value, $selection = [])
     {
         $query = new Query(
@@ -66,42 +88,29 @@ class Adapter extends \UniMapper\Adapter
             $table
         );
 
-        $query->resultCallback = function (Query $query) use ($value) {
+        $query->resultCallback = function (Query $query) {
 
-            $result = $query->fluent->fetch();
-            if (!$result) {
+            $row = $query->fluent->fetch();
+            if (!$row) {
                 return false;
             }
 
             // Associations
             foreach ($query->associations as $association) {
 
-                $value = $result->{$association->getKey()};
-                if (empty($value)) {
+                $referencingKey = $row->{$association->getReferencingKey()};
+                if (empty($referencingKey)) {
                     continue;
                 }
 
-                if ($association instanceof Association\OneToMany) {
-                    $associated = $this->_oneToMany($association, [$value]);
-                } elseif ($association instanceof Association\ManyToOne) {
-                    $associated = $this->_manyToOne($association, [$value]);
-                } elseif ($association instanceof Association\ManyToMany) {
-                    $associated = $this->_manyToMany($association, [$value]);
-                } elseif ($association instanceof Association\OneToOne) {
-                    $associated = $this->_oneToOne($association, [$value]);
-                } else {
-                    throw new InvalidArgumentException(
-                        "Unsupported association " . get_class($association) . "!",
-                        $association
-                    );
-                }
+                $associated = $this->associate($association, [$referencingKey], [$row]);
 
-                if (isset($associated[$value])) {
-                    $result[$association->getPropertyName()] = $associated[$value];
+                if (isset($associated[$referencingKey])) {
+                    $row[$association->getPropertyName()] = $associated[$referencingKey];
                 }
             }
 
-            return $result;
+            return $row;
         };
 
         return $query;
@@ -149,39 +158,26 @@ class Adapter extends \UniMapper\Adapter
             // Associations
             foreach ($query->associations as $association) {
 
-                $primaryKeys = [];
+                $referencingKeys = [];
                 foreach ($result as $row) {
 
-                    if (!empty($row->{$association->getKey()})
-                        && !in_array($row, $primaryKeys, true)
+                    if (!empty($row->{$association->getReferencingKey()})
+                        && !in_array($row, $referencingKeys, true)
                     ) {
-                        $primaryKeys[] = $row->{$association->getKey()};
+                        $referencingKeys[] = $row->{$association->getReferencingKey()};
                     }
                 }
 
-                if (empty($primaryKeys)) {
+                if (empty($referencingKeys)) {
                     continue;
                 }
 
-                if ($association instanceof Association\OneToMany) {
-                    $associated = $this->_oneToMany($association, $primaryKeys);
-                } elseif ($association instanceof Association\ManyToOne) {
-                    $associated = $this->_manyToOne($association, $primaryKeys);
-                } elseif ($association instanceof Association\ManyToMany) {
-                    $associated = $this->_manyToMany($association, $primaryKeys);
-                } elseif ($association instanceof Association\OneToOne) {
-                    $associated = $this->_oneToOne($association, $primaryKeys);
-                } else {
-                    throw new InvalidArgumentException(
-                        "Unsupported association " . get_class($association) . "!",
-                        $association
-                    );
-                }
+                $associated = $this->associate($association, $referencingKeys, $result);
 
                 foreach ($result as $index => $item) {
 
-                    if (isset($associated[$item->{$association->getKey()}])) {
-                        $result[$index][$association->getPropertyName()] = $associated[$item->{$association->getKey()}];
+                    if (isset($associated[$item->{$association->getReferencingKey()}])) {
+                        $result[$index][$association->getPropertyName()] = $associated[$item->{$association->getReferencingKey()}];
                     }
                 }
             }
@@ -192,25 +188,25 @@ class Adapter extends \UniMapper\Adapter
         return $query;
     }
 
-    private function _oneToMany(Association\OneToMany $association, array $primaryKeys)
+    private function _oneToMany(Association\OneToMany $association, array $referencingKeys)
     {
         $targetSelection = $association->getTargetSelectionUnampped();
         return $this->connection->select($targetSelection ? array_values($targetSelection) : "*")
             ->from("%n", $association->getTargetResource())
-            ->where("%n IN %l", $association->getReferencedKey(), $primaryKeys)
+            ->where("%n IN %l", $association->getReferencedKey(), $referencingKeys)
             ->fetchAssoc($association->getReferencedKey() . ",#");
     }
 
-    private function _oneToOne(Association\OneToOne $association, array $primaryKeys)
+    private function _oneToOne(Association\OneToOne $association, array $referencingKeys)
     {
         $targetSelection = $association->getTargetSelectionUnampped();
         return $this->connection->select($targetSelection ? array_values($targetSelection) : "*")
             ->from("%n", $association->getTargetResource())
-            ->where("%n IN %l", $association->getTargetPrimaryKey(), $primaryKeys)
-            ->fetchAssoc($association->getTargetPrimaryKey() . ",#");
+            ->where("%n IN %l", $association->getReferencedKey(), $referencingKeys)
+            ->fetchAssoc($association->getReferencedKey() . ",#");
     }
 
-    private function _manyToOne(Association\ManyToOne $association, array $primaryKeys)
+    private function _manyToOne(Association\ManyToOne $association, array $referencingKeys)
     {
         $primaryColumn = $association->getTargetReflection()
             ->getPrimaryProperty()
@@ -219,16 +215,16 @@ class Adapter extends \UniMapper\Adapter
         $targetSelection = $association->getTargetSelectionUnampped();
         return $this->connection->select($targetSelection ? array_values($targetSelection) : "*")
             ->from("%n", $association->getTargetResource())
-            ->where("%n IN %l", $primaryColumn, $primaryKeys)
+            ->where("%n IN %l", $primaryColumn, $referencingKeys)
             ->fetchAssoc($primaryColumn);
     }
 
-    private function _manyToMany(Association\ManyToMany $association, array $primaryKeys)
+    private function _manyToMany(Association\ManyToMany $association, array $referencingKeys)
     {
-        $joinResult = $this->connection->select("%n,%n", $association->getJoinKey(), $association->getReferencingKey())
+        $joinResult = $this->connection->select("%n,%n", $association->getJoinReferencingKey(), $association->getJoinReferencedKey())
             ->from("%n", $association->getJoinResource())
-            ->where("%n IN %l", $association->getJoinKey(), $primaryKeys)
-            ->fetchAssoc($association->getReferencingKey() . "," . $association->getJoinKey());
+            ->where("%n IN %l", $association->getJoinReferencingKey(), $referencingKeys)
+            ->fetchAssoc($association->getJoinReferencedKey() . "," . $association->getJoinReferencingKey());
 
         if (empty($joinResult)) {
             return [];
@@ -237,8 +233,8 @@ class Adapter extends \UniMapper\Adapter
         $targetSelection = $association->getTargetSelectionUnampped();
         $targetResult = $this->connection->select($targetSelection ? array_values($targetSelection) : "*")
             ->from("%n", $association->getTargetResource())
-            ->where("%n IN %l", $association->getTargetPrimaryKey(), array_keys($joinResult))
-            ->fetchAssoc($association->getTargetPrimaryKey());
+            ->where("%n IN %l", $association->getReferencedKey(), array_keys($joinResult))
+            ->fetchAssoc($association->getReferencedKey());
 
         $result = [];
         foreach ($joinResult as $targetKey => $join) {
@@ -262,18 +258,18 @@ class Adapter extends \UniMapper\Adapter
             $fluent = $this->connection->insert(
                 $association->getJoinResource(),
                 [
-                    $association->getJoinKey() => array_fill(0, count($refKeys), $primaryValue),
-                    $association->getReferencingKey() => $refKeys
+                    $association->getJoinReferencingKey() => array_fill(0, count($refKeys), $primaryValue),
+                    $association->getJoinReferencedKey() => $refKeys
                 ]
             );
         } else {
 
             $fluent = $this->connection->delete($association->getJoinResource())
-                ->where("%n = %s", $association->getJoinKey(), $primaryValue) // @todo %s modificator
-                ->and("%n IN %l", $association->getReferencingKey(), $refKeys);
+                ->where("%n = %s", $association->getJoinReferencingKey(), $primaryValue) // @todo %s modificator
+                ->and("%n IN %l", $association->getJoinReferencedKey(), $refKeys);
         }
 
-        $query = new Query($fluent, $table);
+        $query = new Query($fluent, $association->getJoinResource());
         $query->resultCallback = function (Query $query) {
             return $query->fluent->execute();
         };

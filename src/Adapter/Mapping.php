@@ -26,6 +26,12 @@ class Mapping extends \UniMapper\Adapter\Mapping
         return $value;
     }
 
+    /**
+     * @param \UniMapper\Entity\Reflection $reflection
+     * @param array                        $filter
+     *
+     * @return array
+     */
     public function unmapFilterJoins(Reflection $reflection, array $filter)
     {
         $result = [];
@@ -45,18 +51,16 @@ class Mapping extends \UniMapper\Adapter\Mapping
                     $assocProperty = $reflection->getProperty($assocPropertyName);
                     $alias = $assocProperty->getName(true);
                     $table = $assocProperty->getEntityReflection()->getAdapterResource();
-                    $association = $assocProperty->getOption(Reflection\Property::OPTION_ASSOC);
+                    $association = $assocProperty->getAssociation();
                     if (!isset($created[$alias])) {
-                        if ($association instanceof Association\OneToOne) {
-                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON [{$alias}].[{$association->getTargetPrimaryKey()}] = [{$table}].[{$association->getKey()}]";
-                        } else if ($association instanceof Association\ManyToMany) {
+                        if ($association instanceof Association\ManyToMany) {
+                            // M:N
                             $joinResourceAlias = $alias . '_' . $association->getJoinResource();
-                            $result[] = "[{$association->getJoinResource()}] AS [{$joinResourceAlias}] ON  [{$joinResourceAlias}].[{$association->getJoinKey()}] = [{$table}].[{$association->getKey()}]";
-                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON  [{$alias}].[{$association->getTargetPrimaryKey()}] = [{$joinResourceAlias}].[{$association->getReferencingKey()}]";
-                        } else if ($association instanceof Association\OneToMany) {
-                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON [{$alias}].[{$association->getReferencedKey()}] = [{$table}].[{$association->getKey()}]";
-                        } else if ($association instanceof Association\ManyToOne) {
-                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON [{$alias}].[{$association->getTargetPrimaryKey()}] = [{$table}].[{$association->getKey()}]";
+                            $result[] = "[{$association->getJoinResource()}] AS [{$joinResourceAlias}] ON  [{$joinResourceAlias}].[{$association->getJoinReferencingKey()}] = [{$table}].[{$association->getReferencingKey()}]";
+                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON  [{$alias}].[{$association->getReferencedKey()}] = [{$joinResourceAlias}].[{$association->getJoinReferencedKey()}]";
+                        } else {
+                            // N:1, 1:1, 1:N
+                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON [{$alias}].[{$association->getReferencedKey()}] = [{$table}].[{$association->getReferencingKey()}]";
                         }
                         $created[$alias] = true;
                     }

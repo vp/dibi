@@ -7,6 +7,7 @@ use UniMapper\Entity\Filter;
 class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJoins
 {
 
+    /** @var \UniMapper\Association[] */
     public $associations = [];
 
     /** @var \DibiFluent */
