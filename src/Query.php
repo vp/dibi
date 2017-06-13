@@ -4,7 +4,7 @@ namespace UniMapper\Dibi;
 
 use UniMapper\Entity\Filter;
 
-class Query implements \UniMapper\Adapter\IQuery
+class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJoins
 {
 
     public $associations = [];
@@ -26,9 +26,13 @@ class Query implements \UniMapper\Adapter\IQuery
         "double" => "%f"
     ];
 
-    public function __construct(\DibiFluent $fluent)
+    /** @var  string */
+    private $table;
+
+    public function __construct(\DibiFluent $fluent, $table = null)
     {
         $this->fluent = $fluent;
+        $this->table = $table;
     }
 
     public function getModificators()
@@ -112,6 +116,10 @@ class Query implements \UniMapper\Adapter\IQuery
                         $operator = "!=";
                     }
 
+                    if ($this->table && strpos($name, '.') === false) {
+                        $name =  $this->table . '.' . $name;
+                    }
+
                     $result[] = [
                         "%n %sql " . $modificator,
                         $name,
@@ -130,4 +138,10 @@ class Query implements \UniMapper\Adapter\IQuery
         return (string) $this->fluent;
     }
 
+    public function setJoins(array $joins)
+    {
+        foreach ($joins as $join) {
+            $this->fluent->innerJoin($join);
+        }
+    }
 }
