@@ -93,7 +93,7 @@ class Adapter extends \UniMapper\Adapter
                 break;
             default:
                 throw new InvalidArgumentException(
-                    "Unsupported association " . get_class($association) . "!",
+                    "Unsupported association " . $association->getType() . "!",
                     $association
                 );
         }
@@ -115,7 +115,10 @@ class Adapter extends \UniMapper\Adapter
                 $by = $option->getBy();
                 return $by[0];
             default:
-                throw new \UniMapper\Exception\AdapterException("Unsupported association type");
+                throw new InvalidArgumentException(
+                    "Unsupported association " . $option->getType() . "!",
+                    $option
+                );
         }
     }
 
