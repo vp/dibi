@@ -192,6 +192,10 @@ class Adapter extends \UniMapper\Adapter
 
                 if (isset($associated[$value])) {
                     $result[$propertyName] = $associated[$value];
+                } else {
+                    $result[$propertyName] = $association->getSourceReflection()->getProperty($propertyName)->getType() === \UniMapper\Entity\Reflection\Property::TYPE_COLLECTION
+                        ? []
+                        : null;
                 }
             }
 

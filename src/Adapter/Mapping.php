@@ -43,20 +43,33 @@ class Mapping extends \UniMapper\Adapter\Mapping
                 if ($assocDelimiterPos !== false) {
                     $assocPropertyName = substr($name, 0, $assocDelimiterPos);
                     $assocProperty = $reflection->getProperty($assocPropertyName);
-                    $alias = $assocProperty->getName(true);
-                    $table = $assocProperty->getEntityReflection()->getAdapterResource();
-                    $association = $assocProperty->getOption(Reflection\Property::OPTION_ASSOC);
+                    $alias = $assocProperty->getUnmapped();
+                    $table = $assocProperty->getReflection()->getAdapterResource();
+                    /** @var \UniMapper\Entity\Reflection\Property\Option\Assoc $association */
+                    $association = $assocProperty->getOption(Reflection\Property\Option\Assoc::KEY);
                     if (!isset($created[$alias])) {
-                        if ($association instanceof Association\OneToOne) {
-                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON [{$alias}].[{$association->getTargetPrimaryKey()}] = [{$table}].[{$association->getKey()}]";
-                        } else if ($association instanceof Association\ManyToMany) {
-                            $joinResourceAlias = $alias . '_' . $association->getJoinResource();
-                            $result[] = "[{$association->getJoinResource()}] AS [{$joinResourceAlias}] ON  [{$joinResourceAlias}].[{$association->getJoinKey()}] = [{$table}].[{$association->getKey()}]";
-                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON  [{$alias}].[{$association->getTargetPrimaryKey()}] = [{$joinResourceAlias}].[{$association->getReferencingKey()}]";
-                        } else if ($association instanceof Association\OneToMany) {
-                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON [{$alias}].[{$association->getReferencedKey()}] = [{$table}].[{$association->getKey()}]";
-                        } else if ($association instanceof Association\ManyToOne) {
-                            $result[] = "[{$association->getTargetResource()}] AS [{$alias}] ON [{$alias}].[{$association->getTargetPrimaryKey()}] = [{$table}].[{$association->getKey()}]";
+                        $targetResource = $association->getTargetReflection()->getAdapterResource();
+                        $targetPrimaryKey = $association->getTargetReflection()->getPrimaryProperty()->getUnmapped();
+                        $sourcePrimaryKey = $association->getSourceReflection()->getPrimaryProperty()->getUnmapped();
+
+                        switch ($association->getType()) {
+                            case "m:n":
+                            case "m>n":
+                            case "m<n":
+                                list($joinKey, $joinResource, $referencingKey) = $association->getBy();
+                                $joinResourceAlias = $alias . '_' . $joinResource;
+                                $result[] = "[{$joinResource}] AS [{$joinResourceAlias}] ON  [{$joinResourceAlias}].[{$joinKey}] = [{$table}].[{$sourcePrimaryKey}]";
+                                $result[] = "[{$targetResource}] AS [{$alias}] ON  [{$alias}].[{$targetPrimaryKey}] = [{$joinResourceAlias}].[{$referencingKey}]";
+                                break;
+                            case "1:n":
+                                list($referencedKey) = $association->getBy();
+                                $result[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$referencedKey}] = [{$table}].[{$sourcePrimaryKey}]";
+                                break;
+                            case "1:1":
+                            case "n:1":
+                                list($referencingKey) = $association->getBy();
+                                $result[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$targetPrimaryKey}] = [{$table}].[{$referencingKey}]";
+                                break;
                         }
                         $created[$alias] = true;
                     }
@@ -76,7 +89,7 @@ class Mapping extends \UniMapper\Adapter\Mapping
             $assocProperty = $reflection->getProperty($assocPropertyName);
             $assocEntityReflection = \UniMapper\Entity\Reflection::load($assocProperty->getTypeOption());
             $property = $assocEntityReflection->getProperty($assocPropertyTargetName);
-            return $assocProperty->getName(true) . '.' . $property->getName(true);
+            return $assocProperty->getUnmapped() . '.' . $property->getUnmapped();
         }
 
         return $name;
