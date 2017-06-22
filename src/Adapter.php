@@ -74,27 +74,27 @@ class Adapter extends \UniMapper\Adapter
         return [$selection, $associations];
     }
 
-    protected function associate(Assoc $option, array $referencingKeys, array $targetSelection, $result)
+    protected function associate(Assoc $option, array $referencingKeys, array $targetSelection, array $targetFilter, $result)
     {
         switch ($option->getType()) {
             case "m:n":
             case "m>n":
             case "m<n":
-            $associated = $this->_manyToMany($option, $referencingKeys, $targetSelection);
+            $associated = $this->_manyToMany($option, $referencingKeys, $targetSelection, $targetFilter);
             break;
             case "1:n":
-            $associated = $this->_oneToMany($option, $referencingKeys, $targetSelection);
+            $associated = $this->_oneToMany($option, $referencingKeys, $targetSelection, $targetFilter);
             break;
             case "1:1":
-                $associated = $this->_oneToOne($option, $referencingKeys, $targetSelection);
+                $associated = $this->_oneToOne($option, $referencingKeys, $targetSelection, $targetFilter);
                 break;
             case "n:1":
-                $associated = $this->_manyToOne($option, $referencingKeys, $targetSelection);
+                $associated = $this->_manyToOne($option, $referencingKeys, $targetSelection, $targetFilter);
                 break;
             default:
                 $association = Association::create($option);
                 if ($association instanceof Association\CustomAssociation) {
-                    $associated = $association->associate($this, $option, $referencingKeys, $targetSelection);
+                    $associated = $association->associate($this, $option, $referencingKeys, $targetSelection, $targetFilter);
                 } else {
                     throw new InvalidArgumentException(
                         "Unsupported association " . $option->getType() . "!",
@@ -193,10 +193,15 @@ class Adapter extends \UniMapper\Adapter
                     ? $associationsSelection[$propertyName]
                     : [];
 
+                $targetFilter = isset($query->associationsFilters[$propertyName])
+                    ? $query->associationsFilters[$propertyName]
+                    : [];
+
                 $associated = $this->associate(
                     $association,
                     [$value],
                     $targetSelection,
+                    $targetFilter,
                     $result
                 );
 
@@ -273,10 +278,15 @@ class Adapter extends \UniMapper\Adapter
                     ? $associationsSelection[$propertyName]
                     : [];
 
+                $targetFilter = isset($query->associationsFilters[$propertyName])
+                    ? $query->associationsFilters[$propertyName]
+                    : [];
+
                 $associated = $this->associate(
                     $association,
                     $primaryKeys,
                     $targetSelection,
+                    $targetFilter,
                     $result
                 );
 
@@ -294,7 +304,7 @@ class Adapter extends \UniMapper\Adapter
         return $query;
     }
 
-    private function _oneToMany(Assoc $association, array $primaryKeys, array $targetSelection = [])
+    private function _oneToMany(Assoc $association, array $primaryKeys, array $targetSelection = [], array $targetFilter = [])
     {
         list($referencedKey) = $association->getBy();
 
@@ -304,7 +314,7 @@ class Adapter extends \UniMapper\Adapter
             ->fetchAssoc($referencedKey . ",#");
     }
 
-    private function _oneToOne(Assoc $association, array $primaryKeys, array $targetSelection = [])
+    private function _oneToOne(Assoc $association, array $primaryKeys, array $targetSelection = [], array $targetFilter = [])
     {
         $targetPrimaryKey = $association->getTargetReflection()
             ->getPrimaryProperty()
@@ -318,7 +328,7 @@ class Adapter extends \UniMapper\Adapter
         return $result;
     }
 
-    private function _manyToOne(Assoc $association, array $primaryKeys, array $targetSelection = [])
+    private function _manyToOne(Assoc $association, array $primaryKeys, array $targetSelection = [], array $targetFilter = [])
     {
         $targetPrimaryKey = $association->getTargetReflection()
             ->getPrimaryProperty()
@@ -330,7 +340,7 @@ class Adapter extends \UniMapper\Adapter
             ->fetchAssoc($targetPrimaryKey);
     }
 
-    private function _manyToMany(Assoc $association, array $primaryKeys, array $targetSelection = [])
+    private function _manyToMany(Assoc $association, array $primaryKeys, array $targetSelection = [], array $targetFilter = [])
     {
         list($joinKey, $joinResource, $referencingKey) = $association->getBy();
 

@@ -10,6 +10,9 @@ class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJ
     /** @var \UniMapper\Entity\Reflection\Property\Option\Assoc[] */
     public $associations = [];
 
+    /** @var array */
+    public $associationsFilters = [];
+
     /** @var \DibiFluent */
     public $fluent;
 
@@ -48,9 +51,10 @@ class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJ
         }
     }
 
-    public function setAssociations(array $associations)
+    public function setAssociations(array $associations, array $associationsFilters = [])
     {
         $this->associations += $associations;
+        $this->associationsFilters += $associationsFilters;
     }
 
     public function convertFilter(array $filter)
