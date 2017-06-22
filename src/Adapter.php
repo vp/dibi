@@ -74,28 +74,33 @@ class Adapter extends \UniMapper\Adapter
         return [$selection, $associations];
     }
 
-    protected function associate(Assoc $association, array $referencingKeys, array $targetSelection,  $result)
+    protected function associate(Assoc $option, array $referencingKeys, array $targetSelection, $result)
     {
-        switch ($association->getType()) {
+        switch ($option->getType()) {
             case "m:n":
             case "m>n":
             case "m<n":
-            $associated = $this->_manyToMany($association, $referencingKeys, $targetSelection);
+            $associated = $this->_manyToMany($option, $referencingKeys, $targetSelection);
             break;
             case "1:n":
-            $associated = $this->_oneToMany($association, $referencingKeys, $targetSelection);
+            $associated = $this->_oneToMany($option, $referencingKeys, $targetSelection);
             break;
             case "1:1":
-                $associated = $this->_oneToOne($association, $referencingKeys, $targetSelection);
+                $associated = $this->_oneToOne($option, $referencingKeys, $targetSelection);
                 break;
             case "n:1":
-                $associated = $this->_manyToOne($association, $referencingKeys, $targetSelection);
+                $associated = $this->_manyToOne($option, $referencingKeys, $targetSelection);
                 break;
             default:
-                throw new InvalidArgumentException(
-                    "Unsupported association " . $association->getType() . "!",
-                    $association
-                );
+                $association = Association::create($option);
+                if ($association instanceof Association\CustomAssociation) {
+                    $associated = $association->associate($this, $option, $referencingKeys, $targetSelection);
+                } else {
+                    throw new InvalidArgumentException(
+                        "Unsupported association " . $option->getType() . "!",
+                        $option
+                    );
+                }
         }
         return $associated;
     }
@@ -115,10 +120,15 @@ class Adapter extends \UniMapper\Adapter
                 $by = $option->getBy();
                 return $by[0];
             default:
-                throw new InvalidArgumentException(
-                    "Unsupported association " . $option->getType() . "!",
-                    $option
-                );
+                if ($option->isCustom()) {
+                    $by = $option->getBy();
+                    return $by[0];
+                } else {
+                    throw new InvalidArgumentException(
+                        "Unsupported association " . $option->getType() . "!",
+                        $option
+                    );
+                }
         }
     }
 
