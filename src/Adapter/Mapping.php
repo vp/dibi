@@ -10,6 +10,13 @@ use UniMapper\Association;
 class Mapping extends \UniMapper\Adapter\Mapping
 {
 
+    /** @var array  */
+    private static $filterJoins = [];
+
+    public static function registerFilterJoin($assocType, callable  $callback) {
+        self::$filterJoins[$assocType] = $callback;
+    }
+
     public function mapValue(Reflection\Property $property, $value)
     {
         if ($value instanceof \DibiDateTime) {
@@ -48,28 +55,41 @@ class Mapping extends \UniMapper\Adapter\Mapping
                     /** @var \UniMapper\Entity\Reflection\Property\Option\Assoc $association */
                     $association = $assocProperty->getOption(Reflection\Property\Option\Assoc::KEY);
                     if (!isset($created[$alias])) {
-                        $targetResource = $association->getTargetReflection()->getAdapterResource();
-                        $targetPrimaryKey = $association->getTargetReflection()->getPrimaryProperty()->getUnmapped();
-                        $sourcePrimaryKey = $association->getSourceReflection()->getPrimaryProperty()->getUnmapped();
+                        if ($association->isCustom()) {
+                            // TODO: concept
+                            if (isset(self::$filterJoins[$association->getType()])) {
+                                $result[] = call_user_func_array(
+                                    self::$filterJoins[$association->getType()],
+                                    [
+                                        $assocProperty,
+                                        $association
+                                    ]
+                                );
+                            }
+                        } else {
+                            $targetResource = $association->getTargetReflection()->getAdapterResource();
+                            $targetPrimaryKey = $association->getTargetReflection()->getPrimaryProperty()->getUnmapped();
+                            $sourcePrimaryKey = $association->getSourceReflection()->getPrimaryProperty()->getUnmapped();
 
-                        switch ($association->getType()) {
-                            case "m:n":
-                            case "m>n":
-                            case "m<n":
-                                list($joinKey, $joinResource, $referencingKey) = $association->getBy();
-                                $joinResourceAlias = $alias . '_' . $joinResource;
-                                $result[] = "[{$joinResource}] AS [{$joinResourceAlias}] ON  [{$joinResourceAlias}].[{$joinKey}] = [{$table}].[{$sourcePrimaryKey}]";
-                                $result[] = "[{$targetResource}] AS [{$alias}] ON  [{$alias}].[{$targetPrimaryKey}] = [{$joinResourceAlias}].[{$referencingKey}]";
-                                break;
-                            case "1:n":
-                                list($referencedKey) = $association->getBy();
-                                $result[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$referencedKey}] = [{$table}].[{$sourcePrimaryKey}]";
-                                break;
-                            case "1:1":
-                            case "n:1":
-                                list($referencingKey) = $association->getBy();
-                                $result[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$targetPrimaryKey}] = [{$table}].[{$referencingKey}]";
-                                break;
+                            switch ($association->getType()) {
+                                case "m:n":
+                                case "m>n":
+                                case "m<n":
+                                    list($joinKey, $joinResource, $referencingKey) = $association->getBy();
+                                    $joinResourceAlias = $alias . '_' . $joinResource;
+                                    $result[] = "[{$joinResource}] AS [{$joinResourceAlias}] ON  [{$joinResourceAlias}].[{$joinKey}] = [{$table}].[{$sourcePrimaryKey}]";
+                                    $result[] = "[{$targetResource}] AS [{$alias}] ON  [{$alias}].[{$targetPrimaryKey}] = [{$joinResourceAlias}].[{$referencingKey}]";
+                                    break;
+                                case "1:n":
+                                    list($referencedKey) = $association->getBy();
+                                    $result[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$referencedKey}] = [{$table}].[{$sourcePrimaryKey}]";
+                                    break;
+                                case "1:1":
+                                case "n:1":
+                                    list($referencingKey) = $association->getBy();
+                                    $result[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$targetPrimaryKey}] = [{$table}].[{$referencingKey}]";
+                                    break;
+                            }
                         }
                         $created[$alias] = true;
                     }
