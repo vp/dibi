@@ -74,7 +74,10 @@ class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJ
             // Filter item
 
             foreach ($filter as $name => $item) {
-
+                if ($name === Filter::_NATIVE) {
+                    $result[] = $item;
+                    continue;
+                }
                 foreach ($item as $operator => $value) {
 
                     // Convert data type definition to modificator

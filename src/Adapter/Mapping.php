@@ -97,12 +97,16 @@ class Mapping extends \UniMapper\Adapter\Mapping
             foreach ($filter as $modifier => $item) {
                 list ($groupWhere, $groupJoins) =  $this->unmapFilterJoins($mapper, $reflection, $item);
                 $joins = array_merge($joins, $groupJoins);
-                $where = array_merge($where, $groupWhere);
+                $where = array_merge($where, [$modifier => $groupWhere]);
             }
         } else {
 
             $created = [];
             foreach ($filter as $name => $item) {
+                if ($name === Filter::_NATIVE) {
+                    continue;
+                }
+
                 $assocDelimiterPos = strpos($name, '.');
                 if ($assocDelimiterPos !== false) {
                     // get first property
