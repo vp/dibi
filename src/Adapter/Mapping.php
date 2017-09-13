@@ -30,6 +30,8 @@ class Mapping extends \UniMapper\Adapter\Mapping
     protected function unmapFilterJoinsPropertyWhere(\UniMapper\Mapper $mapper, Reflection $reflection, $name, $item)
     {
         $result = [];
+        $group = substr($name, 0, strpos($name, '#'));
+        $name = self::removeGroup($name);
         $properties = explode('.', $name);
         $unmappedName = null;
         $unmapped = [];
@@ -47,16 +49,16 @@ class Mapping extends \UniMapper\Adapter\Mapping
             }
 
         }
-        $unmappedName = implode('_', $path) . '.' . $unmappedName;
+        $unmappedName = ($group ? $group . '_' : '') . implode('_', $path) . '.' . $unmappedName;
         $mapper->unmapFilterProperty($property, $unmappedName, $item, $result);
         return $result;
     }
 
     protected function unmapFilterJoinPropertyJoin(
         Reflection\Property $assocProperty,
-        \UniMapper\Entity\Reflection\Property\Option\Assoc $association
+        \UniMapper\Entity\Reflection\Property\Option\Assoc $association,
+        $alias
     ) {
-        $alias = $assocProperty->getUnmapped();
         $joins = [];
         $table = $assocProperty->getReflection()->getAdapterResource();
 
@@ -68,19 +70,34 @@ class Mapping extends \UniMapper\Adapter\Mapping
             case "m:n":
             case "m>n":
             case "m<n":
-                list($joinKey, $joinResource, $referencingKey) = $association->getBy();
+                list($joinKey, $joinResource, $joinReferencingKey) = $association->getBy();
                 $joinResourceAlias = $alias . '_' . $joinResource;
-                $joins[] = "[{$joinResource}] AS [{$joinResourceAlias}] ON  [{$joinResourceAlias}].[{$joinKey}] = [{$table}].[{$sourcePrimaryKey}]";
-                $joins[] = "[{$targetResource}] AS [{$alias}] ON  [{$alias}].[{$targetPrimaryKey}] = [{$joinResourceAlias}].[{$referencingKey}]";
+                $referencedKey = $association->hasParameter('target')
+                    ? $association->getParameter('target')
+                    : $targetPrimaryKey;
+
+                $referencingKey = $association->hasParameter('source')
+                    ? $association->getParameter('source')
+                    : $sourcePrimaryKey;
+
+                $joins[] = "[{$joinResource}] AS [{$joinResourceAlias}] ON  [{$joinResourceAlias}].[{$joinKey}] = [{$table}].[{$referencingKey}]";
+                $joins[] = "[{$targetResource}] AS [{$alias}] ON  [{$alias}].[{$referencedKey}] = [{$joinResourceAlias}].[{$joinReferencingKey}]";
                 break;
             case "1:n":
                 list($referencedKey) = $association->getBy();
-                $joins[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$referencedKey}] = [{$table}].[{$sourcePrimaryKey}]";
+                $referencingKey = $association->hasParameter('source')
+                    ? $association->getParameter('source')
+                    : $sourcePrimaryKey;
+                $joins[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$referencedKey}] = [{$table}].[{$referencingKey}]";
                 break;
             case "1:1":
             case "n:1":
                 list($referencingKey) = $association->getBy();
-                $joins[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$targetPrimaryKey}] = [{$table}].[{$referencingKey}]";
+                $referencedKey = $association->hasParameter('target')
+                    ? $association->getParameter('target')
+                    : $targetPrimaryKey;
+
+                $joins[] = "[{$targetResource}] AS [{$alias}] ON [{$alias}].[{$referencedKey}] = [{$table}].[{$referencingKey}]";
                 break;
         }
 
@@ -104,13 +121,19 @@ class Mapping extends \UniMapper\Adapter\Mapping
             $created = [];
             foreach ($filter as $name => $item) {
                 if ($name === Filter::_NATIVE) {
+                    if (is_array($item) && isset($item['joins']))
+                    {
+                        $joins = array_merge($joins, $item['joins']);
+                    }
                     continue;
                 }
 
                 $assocDelimiterPos = strpos($name, '.');
                 if ($assocDelimiterPos !== false) {
                     // get first property
-                    $assocPropertyName = substr($name, 0, strpos($name, '.'));
+                    $assocPropertyName = substr($name, 0, $assocDelimiterPos);
+                    $assocPropertyName = self::removeGroup($assocPropertyName);
+                    
                     $assocProperty = $reflection->getProperty($assocPropertyName);
 
                     /** @var \UniMapper\Entity\Reflection\Property\Option\Assoc $assoc */
@@ -150,7 +173,6 @@ class Mapping extends \UniMapper\Adapter\Mapping
                             );
                         }
                     } else {
-
                         // where
                         $where = array_merge(
                             $where,
@@ -158,11 +180,13 @@ class Mapping extends \UniMapper\Adapter\Mapping
                         );
 
                         // joins
-                        $alias = $assocProperty->getUnmapped();
+                        $group = substr($name, 0, strpos($name, '#'));
+                        $alias = ($group ? $group . '_' : '') . $assocProperty->getUnmapped();
+
                         if (!isset($created[$alias])) {
                             $joins = array_merge(
                                 $joins,
-                                $this->unmapFilterJoinPropertyJoin($assocProperty, $assoc)
+                                $this->unmapFilterJoinPropertyJoin($assocProperty, $assoc, $alias)
                             );
                             $created[$alias] = true;
                         }
@@ -174,4 +198,14 @@ class Mapping extends \UniMapper\Adapter\Mapping
         return [$where, $joins];
     }
 
+
+    private static function removeGroup($assocPropertyName)
+    {
+        $groupHashPos = strpos($assocPropertyName, '#');
+        if ($groupHashPos) {
+            return substr($assocPropertyName, $groupHashPos + 1);
+        }
+        
+        return $assocPropertyName;
+    }
 }

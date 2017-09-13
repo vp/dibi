@@ -72,10 +72,15 @@ class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJ
             }
         } else {
             // Filter item
-
+            
             foreach ($filter as $name => $item) {
                 if ($name === Filter::_NATIVE) {
-                    $result[] = $item;
+                    if (is_array($item)) {
+                        unset($item['joins']);
+                        $result[] = ['%and', $item];
+                    } else {
+                        $result[] = $item;
+                    }
                     continue;
                 }
                 foreach ($item as $operator => $value) {
