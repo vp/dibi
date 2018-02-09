@@ -439,13 +439,21 @@ class Adapter extends \UniMapper\Adapter
      */
     public function createManyToManyAdd($sourceResource, $joinResource, $targetResource, $joinKey, $referencingKey, $primaryValue, array $keys)
     {
-        $fluent = $this->connection->insert(
-            $joinResource,
-            [
-                $joinKey => array_fill(0, count($keys), $primaryValue),
-                $referencingKey => $keys
-            ]
-        );
+        $data = [
+            $joinKey => array_fill(0, count($keys), $primaryValue),
+            $referencingKey => $keys
+        ];
+//        $fluent = $this->connection->insert(
+//            $joinResource,
+//            [
+//                $joinKey => array_fill(0, count($keys), $primaryValue),
+//                $referencingKey => $keys
+//            ]
+//        );
+
+
+        $fluent = $this->connection->command()->insert()
+            ->into('%n %m', $joinResource, $data);
 
         $query = new Query($fluent, $joinResource);
         $query->resultCallback = function (Query $query) {
