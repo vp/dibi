@@ -157,4 +157,11 @@ class Query implements \UniMapper\Adapter\IQuery, \UniMapper\Adapter\IQueryWithJ
             $this->fluent->innerJoin($join);
         }
     }
+
+    public function addOption($name, $value)
+    {
+        throw new \UniMapper\Exception\QueryException('Not supported in dibi query');
+    }
+
+
 }

@@ -113,7 +113,7 @@ class Mapping extends \UniMapper\Adapter\Mapping
 
             foreach ($filter as $modifier => $item) {
                 list ($groupWhere, $groupJoins) =  $this->unmapFilterJoins($mapper, $reflection, $item);
-                $joins = array_merge($joins, $groupJoins);
+                $joins = array_unique(array_merge($joins, $groupJoins));
                 $where = array_merge($where, [$modifier => $groupWhere]);
             }
         } else {
